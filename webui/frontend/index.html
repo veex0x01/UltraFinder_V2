@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UltraFinder v2.1 — Mission Control</title>
+  <style>
+    /* 
+ * ULTRAFINDER RED TEAM THEME v2.1
+ * Includes more options and filters
+ */
+    :root {
+      --bg: #050505;
+      --panel: #0a0a0a;
+      --border: #333333;
+      --text-main: #e0e0e0;
+      --text-dim: #666666;
+      --accent: #ff3333;
+      /* Aggressive Red */
+      --accent-dim: #5c1414;
+      --success: #33ff33;
+      --warning: #ffcc00;
+      --danger: #ff0000;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    /* --- LAYOUT --- */
+    .app {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      height: 100vh;
+    }
+
+    /* --- SIDEBAR --- */
+    .sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+    }
+
+    .logo {
+      padding: 20px;
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo span {
+      font-size: 10px;
+      background: var(--accent);
+      color: black;
+      padding: 2px 4px;
+      font-weight: bold;
+    }
+
+    .nav {
+      padding: 10px 0;
+      flex: 1;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all 0.1s;
+    }
+
+    .nav a:hover,
+    .nav a.active {
+      background: #111;
+      color: var(--text-main);
+    }
+
+    .nav a.active {
+      border-left: 2px solid var(--accent);
+      background: linear-gradient(90deg, var(--accent-dim) 0%, transparent 100%);
+    }
+
+    .ws-status {
+      padding: 15px 20px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ws-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    .ws-dot.connected {
+      background: var(--success);
+      box-shadow: 0 0 5px var(--success);
+    }
+
+    .ws-dot.disconnected {
+      background: var(--danger);
+    }
+
+    /* --- MAIN CONTENT --- */
+    .main {
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    h1 {
+      font-size: 18px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 15px;
+      letter-spacing: 1px;
+    }
+
+    /* --- CARDS & PANELS --- */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      margin-bottom: 0;
+    }
+
+    .card-header {
+      padding: 10px 15px;
+      border-bottom: 1px solid var(--border);
+      font-weight: bold;
+      text-transform: uppercase;
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-body {
+      padding: 15px;
+    }
+
+    /* --- STATS GRID --- */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+
+    .stat-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--text-main);
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .stat-box.critical .stat-value {
+      color: var(--accent);
+      text-shadow: 0 0 10px var(--accent-dim);
+    }
+
+    /* --- FORMS & INPUTS --- */
+    .scan-config {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 15px;
+    }
+
+    .config-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      background: black;
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      padding: 15px;
+      background: black;
+      border: 1px solid var(--border);
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      cursor: pointer;
+      color: var(--text-dim);
+      user-select: none;
+    }
+
+    .checkbox-label:hover {
+      color: var(--text-main);
+    }
+
+    .checkbox-label input {
+      accent-color: var(--accent);
+    }
+
+    .advanced-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: black;
+      border: none;
+      padding: 12px 20px;
+      font-family: var(--font-mono);
+      font-weight: bold;
+      text-transform: uppercase;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .btn:hover {
+      background: red;
+      box-shadow: 0 0 15px var(--accent-dim);
+    }
+
+    /* --- TERMINAL / FEED --- */
+    .terminal {
+      background: black;
+      border: 1px solid var(--border);
+      height: 500px;
+      padding: 10px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .log-entry {
+      padding: 1px 0;
+      margin-bottom: 2px;
+      border-left: 2px solid transparent;
+      padding-left: 5px;
+    }
+
+    /* Log Levels */
+    .log-DEBUG {
+      color: #555;
+    }
+
+    .log-INFO {
+      color: #aaa;
+      border-left-color: #555;
+    }
+
+    .log-WARN {
+      color: var(--warning);
+      border-left-color: var(--warning);
+    }
+
+    .log-ERROR {
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+
+    .log-SUCCESS {
+      color: var(--success);
+      border-left-color: var(--success);
+    }
+
+    /* --- FILTERS BAR --- */
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      background: black;
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+    }
+
+    /* --- TABLES --- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #111;
+      vertical-align: top;
+    }
+
+    tr:hover td {
+      background: #111;
+      color: var(--text-main);
+    }
+
+    /* --- BADGES --- */
+    .badge {
+      padding: 2px 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: bold;
+      border: 1px solid transparent;
+      display: inline-block;
+    }
+
+    .badge-CRITICAL {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(255, 0, 0, 0.1);
+    }
+
+    .badge-HIGH {
+      color: #ff6666;
+    }
+
+    .badge-MEDIUM {
+      color: var(--warning);
+    }
+
+    .badge-LOW {
+      color: #888;
+    }
+
+    .badge-INFO {
+      color: #555;
+    }
+
+    .badge-TECH {
+      border-color: #a371f7;
+      color: #a371f7;
+      background: rgba(163, 113, 247, 0.1);
+    }
+
+    .badge-complete {
+      color: var(--success);
+    }
+
+    .badge-running {
+      color: var(--warning);
+      animation: pulse 1s infinite;
+    }
+
+    .badge-failed {
+      color: var(--accent);
+    }
+
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: black;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="app">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="logo">⚡ UltraFinder <span>v2.1</span></div>
+      <nav class="nav">
+        <a href="#" class="active" onclick="showPage('dashboard')">🛑 MISSION CONTROL</a>
+        <a href="#" onclick="showPage('scans')">📡 SCAN HISTORY</a>
+        <a href="#" onclick="showPage('results')">📋 INTELLIGENCE</a>
+        <a href="#" onclick="showPage('live')">⚡ LIVE TERMINAL</a>
+      </nav>
+      <div class="ws-status">
+        <span class="ws-dot disconnected" id="wsDot"></span>
+        <span id="wsLabel">OFFLINE</span>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- DASHBOARD PAGE -->
+      <div id="page-dashboard">
+        <h1>Mission Control</h1>
+
+        <!-- SCAN CONFIG -->
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-header">Target Configuration</div>
+          <div class="card-body scan-form">
+            <div class="scan-config">
+              <div class="config-col">
+                <input type="text" id="targetInput" placeholder="TARGET URL (e.g. https://example.com)">
+                <div class="options-grid">
+                  <label class="checkbox-label"><input type="checkbox" id="checkSubdomains"> Subdomains</label>
+                  <label class="checkbox-label"><input type="checkbox" id="checkStealth" checked> Stealth Mode</label>
+                  <label class="checkbox-label"><input type="checkbox" id="checkDeep"> Deep Crawl</label>
+                  <label class="checkbox-label"><input type="checkbox" id="checkTech" checked> Tech Detect</label>
+                  <label class="checkbox-label"><input type="checkbox" id="checkVuln" checked> Smart Nuclei</label>
+                </div>
+                <div class="advanced-inputs">
+                  <input type="number" id="threadsInput" placeholder="Threads (Def: 50)" min="1" max="200">
+                  <input type="number" id="timeoutInput" placeholder="Timeout (Def: 10s)" min="1" max="60">
+                </div>
+              </div>
+              <div class="config-col">
+                <div class="input-group">
+                  <label
+                    style="font-size:10px; color:#666; text-transform:uppercase; margin-bottom:5px; display:block;">Select
+                    Pipeline</label>
+                  <select id="pipelineSelect">
+                    <option value="smart_hunt">⚡ Smart Hunt (Default)</option>
+                    <!-- Populated by JS -->
+                  </select>
+                </div>
+                <div style="flex:1"></div>
+                <button class="btn" onclick="startScan()">INITIATE SCAN</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STATS -->
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-value" id="statScans">0</div>
+            <div class="stat-label">Total Missions</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="statResults">0</div>
+            <div class="stat-label">Intel Collected</div>
+          </div>
+          <div class="stat-box critical">
+            <div class="stat-value" id="statVulns">0</div>
+            <div class="stat-label">Vulnerabilities</div>
+          </div>
+          <div class="stat-box critical">
+            <div class="stat-value" id="statCritical">0</div>
+            <div class="stat-label">Critical Threats</div>
+          </div>
+        </div>
+
+        <!-- RECENT SCANS -->
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header">Recent Operations</div>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>TARGET</th>
+                <th>STATUS</th>
+                <th>STARTED</th>
+              </tr>
+            </thead>
+            <tbody id="recentScansBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SCANS PAGE -->
+      <div id="page-scans" style="display:none">
+        <h1>Operation History</h1>
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>TARGET</th>
+                <th>PIPELINE</th>
+                <th>STATUS</th>
+                <th>START</th>
+                <th>DURATION</th>
+              </tr>
+            </thead>
+            <tbody id="scansBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RESULTS PAGE -->
+      <div id="page-results" style="display:none">
+        <h1>Intelligence Report</h1>
+        <div class="filter-bar">
+          <input type="text" id="filterInput" style="flex:2" placeholder="SEARCH QUERY..." oninput="filterResults()">
+          <select id="filterSeverity" style="flex:1" onchange="filterResults()">
+            <option value="">ALL SEVERITIES</option>
+            <option value="CRITICAL">CRITICAL</option>
+            <option value="HIGH">HIGH</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="LOW">LOW</option>
+            <option value="INFO">INFO</option>
+            <option value="TECH">TECH</option>
+          </select>
+          <select id="filterType" style="flex:1" onchange="filterResults()">
+            <option value="">ALL TYPES</option>
+            <option value="technology">TECHNOLOGY</option>
+            <option value="vuln">VULNERABILITY</option>
+            <option value="live-host">LIVE HOST</option>
+          </select>
+        </div>
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>TYPE</th>
+                <th>URL / ASSET</th>
+                <th>SEVERITY</th>
+                <th>SOURCE</th>
+                <th>EVIDENCE</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- LIVE PAGE -->
+      <div id="page-live" style="display:none">
+        <h1>Live Terminal</h1>
+        <div class="terminal" id="liveFeed">
+          <div style="text-align:center; color: #333; margin-top: 150px;">// SYSTEM READY<br>AWAITING INPUT...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let ws;
+    let allResults = [];
+    const pages = ['dashboard', 'scans', 'results', 'live'];
+
+    function showPage(name) {
+      pages.forEach(p => document.getElementById('page-' + p).style.display = p === name ? 'block' : 'none');
+      document.querySelectorAll('.nav a').forEach(a => {
+        a.classList.remove('active');
+        if (a.textContent.toLowerCase().includes(name.includes('dash') ? 'mission' : name)) a.classList.add('active');
+      });
+
+      if (name === 'scans') loadScans();
+      if (name === 'results') loadResults();
+    }
+
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      ws = new WebSocket(proto + '://' + location.host + '/ws');
+      ws.onopen = () => {
+        document.getElementById('wsDot').className = 'ws-dot connected';
+        document.getElementById('wsLabel').textContent = 'ONLINE';
+      };
+      ws.onclose = () => {
+        document.getElementById('wsDot').className = 'ws-dot disconnected';
+        document.getElementById('wsLabel').textContent = 'OFFLINE';
+        setTimeout(connectWS, 3000);
+      };
+      ws.onmessage = (e) => { handleWSMessage(JSON.parse(e.data)); };
+    }
+
+    function handleWSMessage(msg) {
+      const feed = document.getElementById('liveFeed');
+      if (feed.innerText.includes('AWAITING INPUT')) feed.innerHTML = '';
+
+      // LOG HANDLING
+      if (msg.type === 'log') {
+        const level = msg.data.level;
+        const text = msg.data.message;
+        const ts = new Date(msg.data.timestamp).toLocaleTimeString();
+
+        const div = document.createElement('div');
+        div.className = 'log-entry log-' + level;
+        div.innerHTML = `[${ts}] <strong>${level}</strong> ${text}`;
+        feed.appendChild(div); // Auto-scroll?
+        feed.scrollTop = feed.scrollHeight;
+      }
+      else if (msg.type === 'result') {
+        allResults.push(msg.data);
+        const sev = msg.data.severity || 'INFO';
+        const div = document.createElement('div');
+        div.className = 'log-entry log-SUCCESS';
+        div.innerHTML = `[${new Date().toLocaleTimeString()}] <strong>FOUND</strong> ${msg.data.url} (${msg.data.type})`;
+        feed.appendChild(div);
+        feed.scrollTop = feed.scrollHeight;
+        updateStats();
+      }
+      else if (msg.type === 'scan_started') {
+        feed.innerHTML += `<div class="log-entry log-INFO">--- MISSION START: ${msg.data.target} ---</div>`;
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('statResults').textContent = allResults.length;
+      document.getElementById('statVulns').textContent = allResults.filter(r => ['sqli', 'xss', 'lfi', 'rce', 'idor', 'cve'].includes(r.type)).length;
+      document.getElementById('statCritical').textContent = allResults.filter(r => r.severity === 'CRITICAL').length;
+    }
+
+    // Start Scan with Advanced Config
+    async function startScan() {
+      const target = document.getElementById('targetInput').value;
+      const pipeline = document.getElementById('pipelineSelect').value;
+
+      if (!target) return alert('TARGET REQUIRED');
+
+      // Gather Config
+      const config = {
+        target: target,
+        pipeline: pipeline,
+        options: {
+          subdomains: document.getElementById('checkSubdomains').checked,
+          stealth: document.getElementById('checkStealth').checked,
+          deep: document.getElementById('checkDeep').checked,
+          tech_detect: document.getElementById('checkTech').checked,
+          vuln_scan: document.getElementById('checkVuln').checked,
+          threads: parseInt(document.getElementById('threadsInput').value) || 0,
+          timeout: parseInt(document.getElementById('timeoutInput').value) || 0
+        }
+      };
+
+      const resp = await fetch('/api/scan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+
+      if (resp.ok) {
+        alert('MISSION STARTED');
+        showPage('live');
+      } else {
+        alert('ERROR INITIATING SCAN');
+      }
+    }
+
+    async function loadScans() {
+      try {
+        const resp = await fetch('/api/scans');
+        const scans = await resp.json();
+        document.getElementById('statScans').textContent = scans.length;
+
+        // Sort & Render
+        scans.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+
+        // Recent Table
+        document.getElementById('recentScansBody').innerHTML = scans.slice(0, 5).map(s =>
+          `<tr><td>${s.id.split('_')[1] || s.id}</td><td>${s.target}</td>
+       <td><span class="badge badge-${s.status}">${s.status}</span></td>
+       <td>${new Date(s.start_time).toLocaleTimeString()}</td></tr>`
+        ).join('');
+
+        // All Scans Table
+        document.getElementById('scansBody').innerHTML = scans.map(s =>
+          `<tr><td>${s.id}</td><td>${s.target}</td><td>${s.pipeline || 'default'}</td>
+       <td><span class="badge badge-${s.status}">${s.status}</span></td>
+       <td>${new Date(s.start_time).toLocaleString()}</td>
+       <td>${s.end_time ? ((new Date(s.end_time) - new Date(s.start_time)) / 1000).toFixed(1) + 's' : '-'}</td></tr>`
+        ).join('');
+
+      } catch (e) { }
+    }
+
+    async function loadResults() {
+      try {
+        const resp = await fetch('/api/results');
+        allResults = await resp.json();
+        renderResults(allResults);
+      } catch (e) { }
+    }
+
+    function renderResults(results) {
+      const tbody = document.getElementById('resultsBody');
+      tbody.innerHTML = results.map(r => {
+        let sev = r.severity || '-';
+        let cls = sev !== '-' ? 'badge-' + sev.toUpperCase() : '';
+        if (r.type === 'technology') { sev = 'TECH'; cls = 'badge-TECH'; }
+
+        return `<tr>
+      <td>${r.type.toUpperCase()}</td>
+      <td style="max-width:300px;word-break:break-all;color:var(--text-main)">${r.url || '-'}</td>
+      <td><span class="badge ${cls}">${sev}</span></td>
+      <td>${r.tool || r.source || '-'}</td>
+      <td style="color:#888">${r.evidence || r.parameter || '-'}</td>
+    </tr>`;
+      }).join('');
+    }
+
+    function filterResults() {
+      const query = document.getElementById('filterInput').value.toLowerCase();
+      const sevFilter = document.getElementById('filterSeverity').value;
+      const typeFilter = document.getElementById('filterType').value;
+
+      const filtered = allResults.filter(r => {
+        const matchQuery = (r.type + r.url + r.tool + r.evidence).toLowerCase().includes(query);
+        const matchSev = sevFilter === '' || (r.severity === sevFilter) || (sevFilter === 'TECH' && r.type === 'technology');
+        const matchType = typeFilter === '' || (r.type === typeFilter) || (typeFilter === 'vuln' && ['sqli', 'xss', 'cve'].includes(r.type));
+        return matchQuery && matchSev && matchType;
+      });
+      renderResults(filtered);
+    }
+
+    async function loadPipelines() {
+      try {
+        const resp = await fetch('/api/pipelines');
+        const pipes = await resp.json();
+        const sel = document.getElementById('pipelineSelect');
+
+        // Clear and rebuild
+        sel.innerHTML = '<option value="smart_hunt">⚡ Smart Hunt (Default)</option>';
+
+        pipes.forEach(p => {
+          if (p.name !== 'smart_hunt') {
+            const opt = document.createElement('option');
+            opt.value = p.name;
+            opt.textContent = p.name.toUpperCase().replace('_', ' ');
+            sel.appendChild(opt);
+          }
+        });
+      } catch (e) { console.error(e); }
+    }
+
+    // Init
+    connectWS();
+    loadScans();
+    loadPipelines();
+
+  </script>
+</body>
+
+</html>

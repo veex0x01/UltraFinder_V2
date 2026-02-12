@@ -1,0 +1,51 @@
+name: "Default Recon Pipeline"
+description: "Subdomain enum (Subfinder) → Manual Live Probe (+Tech Detect) → Internal Crawl → Smart Vuln Scan"
+
+steps:
+  - name: subdomain_scan
+    type: subfinder
+    output_as: subdomains
+    condition: "$scope != exact"
+    config:
+      threads: 50
+
+  # Amass disabled for stability
+  # - name: amass_scan
+  #   type: amass
+
+  - name: live_filter
+    type: simple_probe # Manual probe + Tech Detection
+    depends_on: [subdomain_scan]
+    config:
+      targets_from: subdomains
+      threads: 50
+      timeout: 10
+    output_as: live_hosts
+
+  - name: endpoint_crawl
+    type: ultrafinder_crawler
+    depends_on: [live_filter]
+    config:
+      targets_from: live_hosts
+      depth: 2
+      threads: 10
+      include_subs: true # Allowed since we have verified subdomains
+      timeout: 15
+    output_as: endpoints
+
+  - name: param_filter
+    type: paramfilter
+    depends_on: [endpoint_crawl]
+    config:
+      targets_from: endpoints
+    output_as: attack_urls
+
+  - name: vuln_scan
+    type: nuclei
+    depends_on: [live_filter] # Parallel with crawler
+    config:
+      targets_from: live_hosts
+      technologies_from: live_filter # Use detected techs for Smart Scan
+      severity: "critical,high,medium"
+      # If detecting tech fails, default nuclei scan runs
+    output_as: vulns

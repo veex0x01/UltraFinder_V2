@@ -1,0 +1,17 @@
+name: "Quick Scan"
+description: "Fast scan — probe target, run nuclei critical/high only"
+
+steps:
+  - name: live_filter
+    type: httpx
+    config:
+      threads: 50
+    output_as: live_hosts
+
+  - name: vuln_scan
+    type: nuclei
+    depends_on: [live_filter]
+    config:
+      targets_from: live_hosts
+      severity: "critical,high"
+    output_as: vulns

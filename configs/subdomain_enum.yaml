@@ -1,0 +1,28 @@
+name: "Subdomain Enumeration"
+description: "Multi-source subdomain enumeration with live filtering"
+
+steps:
+  - name: subfinder_scan
+    type: subfinder
+    config:
+      threads: 30
+    output_as: subfinder_results
+
+  - name: amass_scan
+    type: amass
+    output_as: amass_results
+
+  - name: live_filter
+    type: httpx
+    depends_on: [subfinder_scan, amass_scan]
+    config:
+      threads: 50
+    output_as: live_hosts
+
+  - name: port_scan
+    type: nmap
+    depends_on: [live_filter]
+    config:
+      targets_from: live_hosts
+      ports: "80,443,8080,8443,8000,3000"
+    output_as: open_ports

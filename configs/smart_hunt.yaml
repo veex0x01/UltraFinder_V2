@@ -1,0 +1,61 @@
+name: "Smart Recon + CVE Hunt (TechFinder)"
+description: "TechFinder Tech Detection → Shodan CVE → Smart Nuclei"
+
+steps:
+  - name: subdomain_scan
+    type: subfinder
+    output_as: subdomains
+    condition: "$scope != exact"
+    config:
+      threads: 50
+
+  - name: live_filter
+    type: simple_probe
+    depends_on: [subdomain_scan]
+    config:
+      targets_from: subdomains
+      threads: 30
+      timeout: 10
+    output_as: live_hosts
+
+  - name: tech_detection
+    type: techfinder
+    depends_on: [live_filter]
+    config:
+      targets_from: live_hosts
+    output_as: tech_results
+
+  - name: shodan_cve
+    type: shodan
+    depends_on: [live_filter]
+    config:
+      # Uses free InternetDB API - no API key needed
+    output_as: shodan_intel
+
+  - name: endpoint_crawl
+    type: ultrafinder_crawler
+    depends_on: [live_filter]
+    config:
+      targets_from: live_hosts
+      depth: 2
+      threads: 10
+      include_subs: true
+      timeout: 15
+    output_as: endpoints
+
+  - name: param_filter
+    type: paramfilter
+    depends_on: [endpoint_crawl]
+    config:
+      targets_from: endpoints
+    output_as: attack_urls
+
+  - name: smart_vuln_scan
+    type: smart_nuclei
+    depends_on: [tech_detection, shodan_cve]
+    config:
+      targets_from: live_hosts
+      technologies_from: tech_results
+      cve_from: shodan_cve
+      # Smart mode: only runs CVE-specific templates
+    output_as: vulns

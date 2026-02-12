@@ -1,0 +1,43 @@
+name: "XSS Hunt Pipeline"
+description: "Focused XSS hunting: multi-source enum → probe → internal crawl → param filter → dalfox"
+
+steps:
+  - name: subdomain_scan
+    type: subfinder
+    output_as: subdomains
+
+  - name: amass_scan
+    type: amass
+    output_as: amass_results
+
+  - name: live_filter
+    type: httpx
+    depends_on: [subdomain_scan, amass_scan]
+    config:
+      targets_from: [subdomains, amass_results]
+      threads: 50
+    output_as: live_hosts
+
+  - name: endpoint_crawl
+    type: ultrafinder_crawler
+    depends_on: [live_filter]
+    config:
+      targets_from: live_hosts
+      depth: 3
+      threads: 10
+      include_subs: false
+    output_as: endpoints
+
+  - name: param_filter
+    type: paramfilter
+    depends_on: [endpoint_crawl]
+    config:
+      targets_from: endpoints
+    output_as: attack_urls
+
+  - name: xss_scan
+    type: dalfox
+    depends_on: [param_filter]
+    config:
+      targets_from: attack_urls
+    output_as: xss_results
