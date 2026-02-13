@@ -1,16 +1,19 @@
 package core
 
 import (
+	"bufio"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	utls "github.com/refraction-networking/utls"
 
 )
 
@@ -179,18 +182,95 @@ func (c *EvasionClient) doWithRetry(req *http.Request) (*http.Response, error) {
 }
 
 // createTransport creates a transport with uTLS for fingerprint randomization
-func (c *EvasionClient) createTransport() (*http.Transport, error) {
-	// For now, use standard TLS
-	// uTLS integration requires more complex setup
-	return &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-			MinVersion:         tls.VersionTLS12,
-		},
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
+func (c *EvasionClient) createTransport() (http.RoundTripper, error) {
+	return &uTLSTransport{
+		config: c.config,
+		profile: c.profile,
 	}, nil
+}
+
+// uTLSTransport implements http.RoundTripper with uTLS
+type uTLSTransport struct {
+	config  EvasionConfig
+	profile BrowserProfile
+}
+
+func (t *uTLSTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// 1. Create uTLS Client Hello ID based on profile
+	var helloID utls.ClientHelloID
+	
+	switch strings.ToLower(t.config.Profile) {
+	case "chrome":
+		helloID = utls.HelloChrome_120
+	case "firefox":
+		helloID = utls.HelloFirefox_120
+	case "safari":
+		helloID = utls.HelloSafari_16_0
+	case "ios":
+		helloID = utls.HelloIOS_13
+	case "random":
+		// Randomize popular fingerprints
+		ids := []utls.ClientHelloID{
+			utls.HelloChrome_120, 
+			utls.HelloFirefox_120, 
+			utls.HelloEdge_106,
+			utls.HelloSafari_16_0,
+		}
+		helloID = ids[rand.Intn(len(ids))]
+	default:
+		helloID = utls.HelloChrome_120
+	}
+
+	// 2. Connect with uTLS
+	addr := req.URL.Host
+	if !strings.Contains(addr, ":") {
+		addr += ":443"
+	}
+
+	// Use Dialer for strict timeout control
+	dialer := &net.Dialer{
+		Timeout: t.config.Timeout,
+	}
+	
+	rawConn, err := dialer.DialContext(req.Context(), "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Handshake
+	uConn := utls.UClient(rawConn, &utls.Config{
+		ServerName:         req.URL.Hostname(),
+		InsecureSkipVerify: true,
+	}, helloID)
+
+	if err := uConn.Handshake(); err != nil {
+		rawConn.Close()
+		return nil, fmt.Errorf("uTLS handshake failed: %w", err)
+	}
+
+	// 4. Send Request (HTTP/1.1 for now, HTTP/2 support requires more work with framers)
+	// We'll use a simple write/read for HTTP/1.1 over TLS
+	// NOTE: This implementation is for HTTPS only.
+	// For full HTTP/2 support, we'd need to use x/net/http2 with uTLS conn.
+	// Current implementation forces HTTP/1.1 which is safer for many evasion scenarios anyway.
+	
+	// Re-write request for wire
+	path := req.URL.Path
+	if path == "" { path = "/" }
+	if req.URL.RawQuery != "" { path += "?" + req.URL.RawQuery }
+
+	// Write Request
+	fmt.Fprintf(uConn, "%s %s HTTP/1.1\r\n", req.Method, path)
+	fmt.Fprintf(uConn, "Host: %s\r\n", req.URL.Host)
+	for k, v := range req.Header {
+		for _, val := range v {
+			fmt.Fprintf(uConn, "%s: %s\r\n", k, val)
+		}
+	}
+	fmt.Fprintf(uConn, "\r\n")
+
+	// Read Response
+	return http.ReadResponse(bufio.NewReader(uConn), req)
 }
 
 // applyHeaders applies browser profile headers to request
